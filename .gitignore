@@ -1,0 +1,26 @@
+# 构建产物
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.DotSettings.user
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+artifacts/
+
+# 工具产物(tools/Probe 的原生探针)
+tools/Probe/*.exe
+tools/Probe/*.obj
+tools/Probe/*.pdb

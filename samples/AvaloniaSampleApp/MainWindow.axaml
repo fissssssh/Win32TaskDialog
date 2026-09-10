@@ -1,0 +1,58 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="620"
+        x:Class="AvaloniaSampleApp.MainWindow"
+        Title="Win32TaskDialog — Avalonia 示例"
+        Width="640" Height="640"
+        WindowStartupLocation="CenterScreen">
+
+  <DockPanel Margin="20">
+
+    <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,18">
+      <TextBlock Text="Win32TaskDialog" FontSize="22" FontWeight="SemiBold" />
+      <TextBlock Opacity="0.7" TextWrapping="Wrap"
+                 Text="基于 Win32 TaskDialog(comctl32 v6)的原生消息框。对话框以本窗口为父窗口(OwnerHandle),在 Avalonia 中直接调用。" />
+    </StackPanel>
+
+    <Border DockPanel.Dock="Bottom" Margin="0,18,0,0" Padding="12,10"
+            BorderBrush="#33808080" BorderThickness="1" CornerRadius="6">
+      <TextBlock x:Name="ResultText" Text="尚未执行任何操作" TextWrapping="Wrap" />
+    </Border>
+
+    <ScrollViewer>
+      <StackPanel Spacing="20">
+
+        <StackPanel Spacing="8">
+          <TextBlock Text="基础" FontWeight="SemiBold" Opacity="0.8" />
+          <WrapPanel>
+            <Button Content="简单消息" Margin="0,0,8,8" Click="OnSimpleClick" />
+            <Button Content="按钮组合 (Yes / No / Cancel)" Margin="0,0,8,8" Click="OnButtonsClick" />
+            <Button Content="Confirm → bool" Margin="0,0,8,8" Click="OnConfirmClick" />
+          </WrapPanel>
+        </StackPanel>
+
+        <StackPanel Spacing="8">
+          <TextBlock Text="完整选项" FontWeight="SemiBold" Opacity="0.8" />
+          <WrapPanel>
+            <Button Content="命令链接 + 展开区 + 复选框" Margin="0,0,8,8" Click="OnAdvancedClick" />
+            <Button Content="超时自动关闭 (5 秒)" Margin="0,0,8,8" Click="OnTimeoutClick" />
+          </WrapPanel>
+        </StackPanel>
+
+        <StackPanel Spacing="8">
+          <TextBlock Text="进度条" FontWeight="SemiBold" Opacity="0.8" />
+          <WrapPanel>
+            <Button Content="确定进度" Margin="0,0,8,8" Click="OnProgressClick" />
+            <Button Content="可取消进度" Margin="0,0,8,8" Click="OnCancellableProgressClick" />
+            <Button Content="不确定进度 (Marquee)" Margin="0,0,8,8" Click="OnMarqueeClick" />
+          </WrapPanel>
+          <TextBlock FontSize="12" Opacity="0.6" TextWrapping="Wrap"
+                     Text="进度对话框在后台线程运行,不影响 Avalonia 的 UI 响应;点击原生对话框上的 Cancel 或按 ESC 会触发工作委托的取消令牌。" />
+        </StackPanel>
+
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

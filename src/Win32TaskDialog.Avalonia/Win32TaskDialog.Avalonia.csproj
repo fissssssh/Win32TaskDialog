@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- 面向 net8.0(Avalonia 12 支持的最低目标框架),跨平台 Avalonia 项目均可引用;
+         运行时在非 Win32 后端上由扩展方法返回 IntPtr.Zero,基库随后抛出 PlatformNotSupportedException。 -->
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>Win32TaskDialog.Avalonia</RootNamespace>
+    <AssemblyName>Win32TaskDialog.Avalonia</AssemblyName>
+    <PackageId>Win32TaskDialog.Avalonia</PackageId>
+    <Authors>Win32TaskDialog contributors</Authors>
+    <Description>Avalonia 集成包:为 Win32TaskDialog 提供基于 TopLevel 的异步扩展方法(自动解析父窗口句柄、不阻塞 UI 线程)</Description>
+    <PackageTags>messagebox;taskdialog;win32;windows;dialog;avalonia</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.2" />
+    <PackageReference Include="Nerdbank.GitVersioning" Version="3.10.94">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Win32TaskDialog\Win32TaskDialog.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 以仓库根 README 作为 NuGet 包说明 -->
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

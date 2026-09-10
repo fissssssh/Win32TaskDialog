@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>Probe</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <SkipCompilerExecution>false</SkipCompilerExecution>
+  </PropertyGroup>
+</Project>
