@@ -179,6 +179,33 @@ tests/Smoke/                         # 自动化冒烟测试(FindWindow + TDM_CL
 tools/Probe/                         # 开发期验证工具(布局/关闭机制的诊断探针)
 ```
 
+## 版本与打包
+
+版本号由 [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning)(NBGV)
+从 git 提交历史自动推导,配置见根目录 `version.json`(`"version": "1.0.0-beta.{height}"`,
+`{height}` 随每次提交自动递增):
+
+- **main 分支 / `v*` 标签**上构建 → 干净的预发布版本,如 `1.0.0-beta-0002`;
+- **其他分支**上构建 → 自动附加提交号后缀(如 `1.0.0-beta-0002-g1a2b3c4`),便于区分;
+- **发布正式版**:把 `version.json` 改为 `"1.0.0"`(或 `"1.1.0"` 等)提交后重新打包即可。
+
+打包(输出到 `artifacts/`):
+
+```bash
+dotnet pack Win32TaskDialog.sln -c Release -o artifacts
+```
+
+| 包 | 目标框架 | 依赖 |
+| --- | --- | --- |
+| `Win32TaskDialog` | netstandard2.0 + net8.0-windows | 无 |
+| `Win32TaskDialog.Avalonia` | net8.0 | `Win32TaskDialog`(同版本)+ `Avalonia` 12.1.x |
+
+推送到 NuGet.org:
+
+```bash
+dotnet nuget push "artifacts/*.nupkg" --api-key <API_KEY> --source https://api.nuget.org/v3/index.json
+```
+
 ## 样例
 
 | 样例 | 说明 |
