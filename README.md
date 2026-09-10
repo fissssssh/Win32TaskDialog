@@ -1,8 +1,15 @@
 # Win32TaskDialog
 
+[![NuGet](https://img.shields.io/nuget/v/Win32TaskDialog.svg)](https://www.nuget.org/packages/Win32TaskDialog)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 基于 **Win32 TaskDialog API**(comctl32 v6,Windows Vista+)的消息框库,供其他 .NET 项目引用。
-相比经典 MessageBox,它具有现代的 Windows 原生外观,支持自定义按钮、命令链接、
-验证复选框、"详细信息"展开区、页脚、超时与进度条,而无需任何 WPF/WinForms 依赖。
+相比经典 MessageBox,它具有现代的 Windows 原生外观,支持自定义按钮、命令链接、验证复选框、
+"详细信息"展开区、页脚、超时与进度条,而**无需任何 WPF/WinForms 依赖**。
+
+- 直接调用原生 `TaskDialogIndirect`,外观与系统一致(含深色模式、高 DPI);
+- 同时提供 `string` / `IntPtr` 扩展方法:`Confirm(...)` 与 `ShowProgress(...)`;
+- 另有 Avalonia 集成包,自动解析父窗口句柄并在后台线程显示,不阻塞 UI 渲染。
 
 ## 平台要求
 
@@ -33,6 +40,23 @@
 
 在 csproj 中引用:`<ApplicationManifest>app.manifest</ApplicationManifest>`。
 </details>
+
+## 安装
+
+```bash
+dotnet add package Win32TaskDialog
+```
+
+Avalonia 项目请改用集成包(它会传递依赖核心库):
+
+```bash
+dotnet add package Win32TaskDialog.Avalonia
+```
+
+| 包 | 目标框架 | 依赖 |
+| --- | --- | --- |
+| `Win32TaskDialog` | netstandard2.0 + net8.0-windows | 无 |
+| `Win32TaskDialog.Avalonia` | net8.0 | `Win32TaskDialog`(同版本)+ `Avalonia` 12.0.0 |
 
 ## 快速开始
 
@@ -94,20 +118,7 @@ TaskDialogResult result = "正在批量处理文件…".ShowProgress((progress, 
 
 按钮文字使用英文内置(如 OK / Cancel / Yes),需要本地化时请使用 `CustomButtons` 自定义文字。
 
-## 实现说明
-
-- 核心为 `TaskDialogIndirect` P/Invoke(comctl32.dll v6,SDK 26100 头文件核对);
-- `TASKDIALOGCONFIG` / `TASKDIALOG_BUTTON` 均以 `Pack = 1` 声明(与 COMCTL32 头文件的
-  `<pshpack1.h>` 一致)——这是 x64 下布局正确性的关键,已在运行时验证;
-- 结构体使用现行 SDK 布局(含 `dwCommonButtons`,本库恒为 0,按钮一律经 `pButtons` 数组);
-- 图标走 `pszMainIcon` 预定义值(`TD_*_ICON`),Question 图标经 `LoadIcon(IDI_QUESTION)` + `TDF_USE_HICON_MAIN`;
-- 超时与进度均通过 `TDF_CALLBACK_TIMER` 的 `TDN_TIMER` 轮询实现(约 200ms 一次);
-- 进度条消息:`TDM_SET_PROGRESS_BAR_POS` / `TDM_SET_PROGRESS_BAR_RANGE` / `TDM_SET_ELEMENT_TEXT`;
-- 程序化关闭(超时/完成)使用 `TDM_CLICK_BUTTON` 点击真实存在的按钮,结果由托管层按状态
-  重新映射为 Ok/Cancel/Timeout/Error。注意:`TDM_RETURN_VALUE`(0x0231,旧版消息)
-  在现代 comctl32 上已失效(经原生探针验证),故未使用。
-
-## 在 Avalonia 中使用(Win32TaskDialog.Avalonia)
+## 在 Avalonia 中使用
 
 Avalonia 项目推荐引用集成包 `Win32TaskDialog.Avalonia`(net8.0,Avalonia 12+):
 扩展方法挂在 `TopLevel`(窗口)上,自动以该窗口为父窗口、在后台线程显示原生对话框,
@@ -143,6 +154,10 @@ TaskDialogResult progress = await this.ShowProgressAsync("正在处理…", (p, 
 所有扩展方法需在 **UI 线程调用**(仅做句柄解析与参数准备,随后立即异步返回;
 HWND 必须在 UI 线程解析,Avalonia 对象不可跨线程访问)。
 
+> **注意**:Avalonia 应用的默认清单**不含** common-controls v6 依赖,需要手动补充
+> (见上文"无清单宿主的最小 app.manifest");[`samples/AvaloniaSampleApp/app.manifest`](https://github.com/fissssssh/Win32TaskDialog/blob/main/samples/AvaloniaSampleApp/app.manifest)
+> 是一个完整示例。
+
 ### 不使用集成包
 
 也可以只引用核心库自行封装:
@@ -157,64 +172,36 @@ var result = await Task.Run(() => TaskDialog.Show(new TaskDialogOptions
 }));
 ```
 
-注意:Avalonia 应用的默认清单**不含** common-controls v6 依赖,需要手动补充
-(见上文"无清单宿主的最小 app.manifest"),`samples/AvaloniaSampleApp/app.manifest` 是一个完整示例。
-
-## 解决方案结构
+## 构建与测试
 
 用 Visual Studio / Rider 打开根目录的 `Win32TaskDialog.sln`,或使用 CLI:
 
 ```bash
 dotnet build Win32TaskDialog.sln   # 构建全部
-dotnet run --project tests/Smoke               # 自动化冒烟测试(会短暂弹出原生对话框后自动点击)
+dotnet run --project tests/Smoke   # 自动化冒烟测试(会短暂弹出原生对话框后自动点击)
 ```
 
-```
-Win32TaskDialog.sln
-src/Win32TaskDialog/                 # 核心类库(netstandard2.0 + net8.0-windows)
-src/Win32TaskDialog.Avalonia/        # Avalonia 12 集成包(net8.0)
-samples/SampleApp/                   # 控制台示例
-samples/AvaloniaSampleApp/           # Avalonia 12 桌面应用示例
-tests/Smoke/                         # 自动化冒烟测试(FindWindow + TDM_CLICK_BUTTON 驱动)
-tools/Probe/                         # 开发期验证工具(布局/关闭机制的诊断探针)
-```
-
-## 版本与打包
-
-版本号由 [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning)(NBGV)
-从 git 提交历史自动推导,配置见根目录 `version.json`(`"version": "1.0.0-beta.{height}"`,
-`{height}` 随每次提交自动递增):
-
-- **main 分支 / `v*` 标签**上构建 → 干净的预发布版本,如 `1.0.0-beta-0002`;
-- **其他分支**上构建 → 自动附加提交号后缀(如 `1.0.0-beta-0002-g1a2b3c4`),便于区分;
-- **发布正式版**:把 `version.json` 改为 `"1.0.0"`(或 `"1.1.0"` 等)提交后重新打包即可。
-
-打包(输出到 `artifacts/`):
+仓库另含控制台与 Avalonia 两个示例项目,可直接运行查看效果:
 
 ```bash
-dotnet pack Win32TaskDialog.sln -c Release -o artifacts
-```
+dotnet run --project samples/SampleApp          # 控制台宿主,覆盖核心与扩展 API
+dotnet run --project samples/AvaloniaSampleApp  # Avalonia 桌面应用
 
-| 包 | 目标框架 | 依赖 |
-| --- | --- | --- |
-| `Win32TaskDialog` | netstandard2.0 + net8.0-windows | 无 |
-| `Win32TaskDialog.Avalonia` | net8.0 | `Win32TaskDialog`(同版本)+ `Avalonia` 12.1.x |
-
-推送到 NuGet.org:
-
-```bash
-dotnet nuget push "artifacts/*.nupkg" --api-key <API_KEY> --source https://api.nuget.org/v3/index.json
-```
-
-## 样例
-
-| 样例 | 说明 |
-| --- | --- |
-| `samples/SampleApp` | 控制台宿主(`dotnet run --project samples/SampleApp`),覆盖核心与扩展 API |
-| `samples/AvaloniaSampleApp` | Avalonia 12 桌面应用(`dotnet run --project samples/AvaloniaSampleApp`),通过 `Win32TaskDialog.Avalonia` 集成包演示全部对话框 |
-
-Avalonia 示例支持无人值守自检(自动弹出 3 秒超时对话框并验证返回值):
-
-```bash
+# Avalonia 示例支持无人值守自检(自动弹出 3 秒超时对话框并验证返回值)
 AVALONIA_SMOKE=1 dotnet run --project samples/AvaloniaSampleApp
 ```
+
+## 贡献
+
+欢迎提交 Issue 与 Pull Request。
+
+1. Fork 本仓库并从 `main` 切出特性分支;
+2. 保持与现有代码风格一致(中文注释、半角标点),新增公开 API 请补齐 XML 文档注释;
+3. 涉及对话框行为的改动,请运行 `tests/Smoke` 冒烟测试确认未回归;
+4. 提交 PR 时说明改动动机与验证方式。
+
+若发现 Bug,请在 Issue 中附上 Windows 版本、目标框架与最小复现步骤。
+
+## 许可证
+
+本项目采用 [MIT 许可证](LICENSE)。
