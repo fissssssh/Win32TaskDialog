@@ -13,6 +13,7 @@
     <Authors>Win32TaskDialog contributors</Authors>
     <Description>基于 Win32 TaskDialog API 的消息框库,供其他 .NET 项目使用</Description>
     <PackageTags>messagebox;taskdialog;win32;windows;dialog</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>

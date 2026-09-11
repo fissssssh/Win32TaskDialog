@@ -13,13 +13,14 @@
     <Authors>Win32TaskDialog contributors</Authors>
     <Description>Avalonia 集成包:为 Win32TaskDialog 提供基于 TopLevel 的异步扩展方法(自动解析父窗口句柄、不阻塞 UI 线程)</Description>
     <PackageTags>messagebox;taskdialog;win32;windows;dialog;avalonia</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="12.1.2" />
+    <PackageReference Include="Avalonia" Version="12.0.0" />
     <PackageReference Include="Nerdbank.GitVersioning" Version="3.10.94">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
