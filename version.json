@@ -4,5 +4,9 @@
   "publicReleaseRefSpec": [
     "^refs/heads/main$",
     "^refs/tags/v\\d+\\.\\d+"
-  ]
+  ],
+  "release": {
+    "branchName": "release/v{version}",
+    "tagName": "v{version}"
+  }
 }

@@ -1,0 +1,96 @@
+name: Publish
+
+# 触发方式:
+#  1) 推送 v* 标签(如 v1.0.0)→ 发**正式版**:构建、打包、发布 NuGet 并创建 GitHub Release。
+#  2) 推送到 dev 分支 → 发**预览版**:版本号由 NBGV 依 version.json 计算
+#     (形如 1.1.0-alpha.{height}),仅推送到 NuGet,不创建 Release。
+#  3) 手动触发(Actions → Publish → Run workflow):填写要发布的 ref,
+#     版本号同样交给 NBGV 计算,仅推送到 NuGet,不创建 Release。
+#
+# 重要:版本号完全由 version.json 决定(NBGV 会覆盖命令行传入的 Version/PackageVersion)。
+#      且 NBGV 从 **git 历史中的** version.json 计算版本基线——只改工作区而不提交会算出
+#      错误版本(实测产出 1.0.0-alpha-0000)。发布正式版的正确顺序:
+#        先提交 version.json(如 "1.0.0") → 再在其上打标签 v1.0.0 → 推送标签。
+#      下面的校验步骤会拦截"标签名与 version.json 不一致"的情况。
+#
+# 注意:main 分支自身推送不会发布(分支过滤只匹配 dev);
+#      tag 必须打在 main 上——GitHub 只读取被推送 ref 上的 workflow 文件,
+#      打在其它分支上的标签不会触发本工作流。
+on:
+  push:
+    tags: [ 'v*' ]        # 正式版
+    branches: [ 'release/v*' ]   # rc版
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: '要发布的 Git ref(分支名或标签),例如 dev 或 v1.0.0'
+        required: true
+        default: 'dev'
+
+permissions:
+  contents: write   # 创建 GitHub Release
+  id-token: write   # Trusted Publishing(OIDC)换取 nuget.org 临时 API key
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout(需完整历史,NBGV 依据提交高度计算版本号)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          # 标签/分支触发时用触发它的 ref;手动触发时用输入的 ref
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 校验标签名与 version.json 一致(仅标签触发)
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          json_version="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' version.json | head -1)"
+          echo "标签版本: $tag_version"
+          echo "version.json: $json_version"
+          if [[ "$tag_version" != "$json_version" ]]; then
+            echo "::error::标签版本($tag_version)与 version.json($json_version)不一致。NBGV 以 version.json 为准,发布正式版须先提交 version.json 再打标签。"
+            exit 1
+          fi
+
+      - name: Build
+        run: dotnet build Win32TaskDialog.sln -c Release
+
+      - name: Pack
+        run: dotnet pack Win32TaskDialog.sln -c Release --no-build -o artifacts
+
+      - name: NuGet login(Trusted Publishing:OIDC → 临时 API key,有效期约 1 小时)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          # nuget.org 的配置名(profile name),不是邮箱;需在仓库
+          # Settings → Secrets and variables → Actions 中添加同名的 NUGET_USER
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to NuGet.org
+        shell: bash   # 需要 bash 展开 artifacts/*.nupkg 通配符
+        run: >
+          dotnet nuget push artifacts/*.nupkg
+          --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+
+      - name: Create GitHub Release(仅标签触发)
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          extra=""
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then extra="--prerelease"; fi
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            $extra --generate-notes \
+            artifacts/*.nupkg
