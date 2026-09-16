@@ -133,11 +133,9 @@ namespace Win32TaskDialog.Avalonia
             ArgumentNullException.ThrowIfNull(work);
 
             IntPtr hwnd = owner.GetWin32Handle();
-            options ??= new TaskDialogProgressOptions();
-            if (options.OwnerHandle == IntPtr.Zero)
-                options.OwnerHandle = hwnd;
-
-            return Task.Run(() => message.ShowProgress(work, options));
+            // 使用 ownerHandle 重载:父窗口句柄由基库写入内部副本,
+            // 不修改调用方传入的 options 实例。
+            return Task.Run(() => hwnd.ShowProgress(message, work, options));
         }
     }
 }

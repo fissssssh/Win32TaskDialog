@@ -144,17 +144,30 @@ namespace Win32TaskDialog
             // 超时则强制关闭对话框。
             long cancelRequestedAt = -1;
 
+            // 组装选项:在调用方配置的副本上覆盖(进度对话框禁用预定义组合,按钮由库决定),
+            // 从而不修改调用方传入的实例。
+            var progressOptions = BuildProgressOptions(message, ownerHandle, options);
+            progressOptions.Buttons = TaskDialogButtons.None;
+            progressOptions.CustomButtons = progressOptions.ShowCancelButton
+                ? new[] { TaskDialogButton.Cancel }
+                : new[] { TaskDialogButton.Ok };
+            bool autoCloseOnComplete = progressOptions.AutoCloseOnComplete;
+
             var runtime = new TaskDialogRuntime
             {
-                Timeout = options?.Timeout ?? TimeSpan.Zero,
+                Timeout = progressOptions.Timeout,
                 ShowProgressBar = true,
-                MarqueeProgressBar = options?.Marquee ?? false,
+                MarqueeProgressBar = progressOptions.Marquee,
             };
             runtime.OnTimedOut = () => cts.Cancel(); // 超时等价于向工作委托请求取消
 
             bool rangeSent = false;
             runtime.OnButtonClickedHandler = (hwnd, id) =>
             {
+                // 工作已结束:不再拦截,直接关闭(AutoCloseOnComplete=false 时由用户决定何时关闭)
+                if (reporter.TryGetOutcome(out _))
+                    return false;
+
                 if (id == TaskDialogResult.Cancel)
                 {
                     cts.Cancel();
@@ -212,17 +225,11 @@ namespace Win32TaskDialog
                     }
                 }
 
-                // 完工/异常:程序化关闭(结果映射在 ShowCore 返回后统一处理)
-                if (reporter.TryGetOutcome(out Exception? exception))
+                // 完工/异常:程序化关闭(结果映射在 ShowCore 返回后统一处理);
+                // AutoCloseOnComplete=false 时保持打开,由用户点击按钮关闭。
+                if (autoCloseOnComplete && reporter.TryGetOutcome(out _))
                     runtime.Close(hwnd);
             };
-
-            // 组装选项(进度对话框禁用预定义组合,按钮由库决定)
-            var progressOptions = BuildProgressOptions(message, ownerHandle, options);
-            progressOptions.Buttons = TaskDialogButtons.None;
-            progressOptions.CustomButtons = progressOptions.ShowCancelButton
-                ? new[] { TaskDialogButton.Cancel }
-                : new[] { TaskDialogButton.Ok };
 
             using (cts)
             {
@@ -261,13 +268,29 @@ namespace Win32TaskDialog
                     }
 
                     bool workCompleted = reporter.TryGetOutcome(out _);
-                    if (runtime.TimedOut || (cts.IsCancellationRequested && workCompleted))
-                        return TaskDialogResult.Cancel;
+
+                    // 超时:无论工作是否已收尾都返回 Timeout(工作委托已被请求取消),
+                    // 与 TaskDialogOptions.Timeout 的文档保持一致。
+                    if (runtime.TimedOut)
+                        return TaskDialogResult.Timeout;
 
                     if (workCompleted)
-                        return TaskDialogResult.Ok;
+                    {
+                        // 用户此前点击过 Cancel:工作已按取消收尾,语义为取消。
+                        if (Volatile.Read(ref cancelRequestedAt) >= 0)
+                            return TaskDialogResult.Cancel;
 
-                    return raw; // 用户点击了可见按钮(OK / Cancel)且工作尚未完成
+                        // AutoCloseOnComplete=true 时对话框由库关闭,语义为正常完成;
+                        // false 时对话框仍开着,结果就是用户实际点击的按钮。
+                        return autoCloseOnComplete ? TaskDialogResult.Ok : raw;
+                    }
+
+                    // 工作尚未收尾:对话框是被用户关闭的。只有取消语义(取消按钮、关闭按钮、
+                    // Alt-F4、Esc)才映射为 Cancel;点击 OK 等按钮提前关闭时工作被中断,
+                    // 不应误报为 Ok。
+                    return raw == TaskDialogResult.Cancel
+                        ? TaskDialogResult.Cancel
+                        : TaskDialogResult.None;
                 }
                 finally
                 {
@@ -280,7 +303,8 @@ namespace Win32TaskDialog
         private static TaskDialogProgressOptions BuildProgressOptions(
             string message, IntPtr ownerHandle, TaskDialogProgressOptions? source)
         {
-            var options = source ?? new TaskDialogProgressOptions();
+            // 在副本上改写,避免污染调用方传入的实例。
+            var options = source?.Clone() ?? new TaskDialogProgressOptions();
             if (string.IsNullOrEmpty(options.Instruction))
                 options.Instruction = message;
             if (ownerHandle != IntPtr.Zero)

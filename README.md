@@ -98,7 +98,7 @@ TaskDialogResult result = "正在批量处理文件…".ShowProgress((progress, 
         Thread.Sleep(50);
     }
 });
-// 返回 TaskDialogResult.Ok / Cancel;工作抛异常时原样抛回调用线程
+// 结果:工作完成 → Ok;用户取消 → Cancel;超时 → Timeout(详见下方“API 一览”)
 ```
 
 ## API 一览
@@ -109,7 +109,12 @@ TaskDialogResult result = "正在批量处理文件…".ShowProgress((progress, 
 | `TaskDialog.Show(message, title)` | 带标题 |
 | `TaskDialog.Show(options)` | 完整配置 |
 | `string.Confirm(...)` / `IntPtr.Confirm(...)` | Yes/No 确认,返回 `bool` |
-| `string.ShowProgress(...)` / `IntPtr.ShowProgress(...)` | 进度条对话框(支持取消、Marquee、异常传播) |
+| `TaskDialogOptions.Confirm()` | 基于完整配置的确认,Yes/OK/Continue/TryAgain/Retry 为 `true` |
+| `string.ShowProgress(...)` / `IntPtr.ShowProgress(...)` | 进度条对话框(支持取消、Marquee、超时、异常传播) |
+| `new TaskDialogProgressOptions().AutoCloseOnComplete` | 工作完成后是否自动关闭(默认 `true`) |
+| `new TaskDialogProgressOptions().ShowCancelButton` | 是否显示 Cancel 按钮(默认 `true`) |
+| `new TaskDialogProgressOptions().Marquee` | 不确定进度(循环滚动),忽略具体数值 |
+| `new TaskDialogProgressOptions().ThrowOnWorkException` | 工作异常是否原样抛回调用线程(默认 `true`) |
 
 `TaskDialogOptions` 支持:标题、主文本(Instruction)、内容、图标、预定义按钮组合
 (`OkCancel` / `YesNo` / `AbortRetryIgnore` 等)、自定义按钮(`CustomButtons`,文本内可用换行做命令链接)、
@@ -117,6 +122,19 @@ TaskDialogResult result = "正在批量处理文件…".ShowProgress((progress, 
 `Timeout`、`MinimumWidth` 与 `OwnerHandle`(父窗口 HWND)。
 
 按钮文字使用英文内置(如 OK / Cancel / Yes),需要本地化时请使用 `CustomButtons` 自定义文字。
+
+进度对话框的结果映射(见 `TaskDialogProgressOptions`):
+
+| 情形 | 返回值 |
+| --- | --- |
+| 工作正常完成(默认自动关闭) | `Ok` |
+| 用户点击 Cancel / 关闭窗口 | `Cancel` |
+| 设置了 `Timeout` 且超时 | `Timeout` |
+| `AutoCloseOnComplete = false` 且工作已完成 | 用户点击的按钮 ID |
+| 工作尚未完成就被点击关闭 | `None`(工作被提前中断,不误报为 `Ok`) |
+| 工作抛异常且 `ThrowOnWorkException = false` | `Error`(默认则原样抛回调用线程) |
+
+`ShowProgress` 不会修改调用方传入的 `TaskDialogProgressOptions` 实例(内部会先复制),需要复用同一份配置时无需担心被覆写。
 
 ## 在 Avalonia 中使用
 

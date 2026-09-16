@@ -22,7 +22,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Win32TaskDialog.Tests" />
+    <!-- 冒烟测试项目(程序集名 Smoke)需要访问内部类型以校验运行时状态 -->
+    <InternalsVisibleTo Include="Smoke" />
   </ItemGroup>
 
   <ItemGroup>

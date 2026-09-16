@@ -76,9 +76,10 @@ namespace SampleApp
             var marquee = new TaskDialogProgressOptions
             {
                 Marquee = true,
+                // 设置了 Instruction 时,ShowProgress 的 message 参数仅作为空值时的回退文本
                 Instruction = "正在连接网络…",
             };
-            TaskDialogResult mr = "暂不支持取消演示".ShowProgress((progress, token) =>
+            TaskDialogResult mr = "Marquee(不确定进度)演示:工作期间可点击“取消”中断".ShowProgress((progress, token) =>
             {
                 for (int i = 0; i < 10; i++)
                 {

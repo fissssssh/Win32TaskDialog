@@ -40,6 +40,10 @@ namespace Smoke
             Expect(TestProgressOk(), "进度条正常完成 → Ok");
             Expect(TestProgressCancel(), "进度条取消 → Cancel,work 提前停止");
             Expect(TestProgressException(), "进度条异常传播 → 原异常");
+            Expect(TestProgressNoAutoClose(), "AutoCloseOnComplete=false:不自动关闭,返回用户点击的按钮");
+            Expect(TestProgressInterrupt(), "工作未完成时点击按钮 → None");
+            Expect(TestProgressTimeout(), "进度条超时 → Timeout");
+            Expect(TestProgressOptionsUntouched(), "调用方传入的 options 不被修改");
 
             Console.WriteLine($"\n== SMOKE 结果: 通过 {_pass},失败 {_fail} ==");
             Environment.Exit(_fail > 0 ? 1 : 0);
@@ -169,6 +173,116 @@ namespace Smoke
             {
                 return ex.Message == "BOOM-42";
             }
+        }
+
+        /// <summary>AutoCloseOnComplete=false:工作完成后对话框保持打开,结果为用户点击的按钮。</summary>
+        private static bool TestProgressNoAutoClose()
+        {
+            const string title = "smoke-progress-manual";
+            var opts = new TaskDialogProgressOptions
+            {
+                Title = title,
+                Instruction = "工作很快结束,但需手动确认",
+                AutoCloseOnComplete = false,
+                ShowCancelButton = false, // 仅 OK 按钮
+            };
+            Task<bool> watch = ArmClick(title, 1500, 1); // 工作完成后(约 0.5s)才点 OK
+            var sw = Stopwatch.StartNew();
+            TaskDialogResult r = "手动确认".ShowProgress((p, token) =>
+            {
+                for (int i = 0; i < 10; i++) { p.Report(i * 10); Thread.Sleep(50); }
+            }, opts);
+            sw.Stop();
+            // 若被提前自动关闭,时长会远小于 1.3s(且 ArmClick 找不到窗口)
+            return watch.Wait(2000) && r == TaskDialogResult.Ok && sw.ElapsedMilliseconds >= 1300;
+        }
+
+        /// <summary>工作尚未完成时用户点击 OK:工作被中断,不应误报为 Ok。</summary>
+        private static bool TestProgressInterrupt()
+        {
+            const string title = "smoke-progress-interrupt";
+            var stopped = new int[1];
+            var opts = new TaskDialogProgressOptions
+            {
+                Title = title,
+                Instruction = "长任务(5 秒)",
+                ShowCancelButton = false,
+            };
+            Task<bool> watch = ArmClick(title, 800, 1); // 工作未完成就点了 OK
+            var sw = Stopwatch.StartNew();
+            TaskDialogResult r = "提前确认".ShowProgress((p, token) =>
+            {
+                for (int i = 0; i < 500; i++)
+                {
+                    token.ThrowIfCancellationRequested();
+                    p.Report(i % 100);
+                    Thread.Sleep(10);
+                }
+                Interlocked.Exchange(ref stopped[0], 1); // 未被取消时才会走到这里
+            }, opts);
+            sw.Stop();
+            return watch.Wait(2000)
+                && r == TaskDialogResult.None
+                && Volatile.Read(ref stopped[0]) == 0
+                && sw.ElapsedMilliseconds < 3000;
+        }
+
+        /// <summary>进度对话框 + 超时:返回 Timeout(而非 Cancel)。</summary>
+        private static bool TestProgressTimeout()
+        {
+            const string title = "smoke-progress-timeout";
+            var stopped = new int[1];
+            var opts = new TaskDialogProgressOptions
+            {
+                Title = title,
+                Instruction = "长任务(10 秒)",
+                ShowCancelButton = false,
+                Timeout = TimeSpan.FromSeconds(1.5),
+            };
+            var sw = Stopwatch.StartNew();
+            TaskDialogResult r = "超时演示".ShowProgress((p, token) =>
+            {
+                for (int i = 0; i < 1000; i++)
+                {
+                    token.ThrowIfCancellationRequested();
+                    p.Report(i % 100);
+                    Thread.Sleep(10);
+                }
+                Interlocked.Exchange(ref stopped[0], 1);
+            }, opts);
+            sw.Stop();
+            return r == TaskDialogResult.Timeout
+                && Volatile.Read(ref stopped[0]) == 0
+                && sw.ElapsedMilliseconds >= 1400
+                && sw.ElapsedMilliseconds < 5000;
+        }
+
+        /// <summary>进度模式只在副本上改写选项:调用方传入的实例必须保持不变。</summary>
+        private static bool TestProgressOptionsUntouched()
+        {
+            const string title = "smoke-progress-nomutate";
+            var opts = new TaskDialogProgressOptions
+            {
+                Title = title,
+                Instruction = "库不应改写本实例",
+                Text = "原始内容",
+                Buttons = TaskDialogButtons.YesNoCancel,
+                Cancelable = true,
+                ShowCancelButton = false, // 副本会被改写成单个 OK 按钮
+            };
+            TaskDialogResult r = "不改写".ShowProgress((p, token) =>
+            {
+                for (int i = 0; i < 5; i++) { p.Report(i * 20); Thread.Sleep(40); }
+            }, opts);
+
+            return r == TaskDialogResult.Ok
+                && opts.Buttons == TaskDialogButtons.YesNoCancel
+                && opts.CustomButtons is null
+                && opts.Cancelable
+                && opts.AutoCloseOnComplete
+                && opts.OwnerHandle == IntPtr.Zero
+                && opts.Instruction == "库不应改写本实例"
+                && opts.Text == "原始内容";
         }
 
         /// <summary>

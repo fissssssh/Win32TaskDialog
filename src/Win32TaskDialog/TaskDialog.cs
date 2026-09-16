@@ -201,8 +201,14 @@ namespace Win32TaskDialog
                     break;
                 case TaskDialogIcon.Question:
                     // Question 没有预定义的 MAKEINTRESOURCE 值,改用系统图标句柄。
-                    mainIcon = NativeMethods.LoadIcon(IntPtr.Zero, new IntPtr(TaskDialogNativeConstants.IDI_QUESTION));
-                    flags |= TaskDialogNativeConstants.TDF_USE_HICON_MAIN;
+                    // LoadIcon 可能返回 NULL(图标不可用);此时不能置 TDF_USE_HICON_MAIN,
+                    // 否则对话框图标区会变为空白。
+                    IntPtr questionIcon = NativeMethods.LoadIcon(IntPtr.Zero, new IntPtr(TaskDialogNativeConstants.IDI_QUESTION));
+                    if (questionIcon != IntPtr.Zero)
+                    {
+                        mainIcon = questionIcon;
+                        flags |= TaskDialogNativeConstants.TDF_USE_HICON_MAIN;
+                    }
                     break;
                 case TaskDialogIcon.None:
                 default:

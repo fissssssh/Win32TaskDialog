@@ -5,7 +5,11 @@ namespace Win32TaskDialog
     /// </summary>
     public enum TaskDialogResult
     {
-        /// <summary>未返回任何结果。</summary>
+        /// <summary>
+        /// 未返回任何结果。进度对话框(见 <see cref="TaskDialogExtensions.ShowProgress(string,System.Action{TaskDialogProgressReporter,System.Threading.CancellationToken},TaskDialogProgressOptions)"/>)中,
+        /// 用户点击了可见按钮(如 OK)但工作委托尚未完成时返回——工作被提前中断,
+        /// 因此不应误报为 <see cref="Ok"/>。
+        /// </summary>
         None = 0,
 
         /// <summary>用户点击了 "OK" 按钮。值为 Win32 的 IDOK。</summary>
